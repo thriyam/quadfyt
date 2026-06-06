@@ -207,7 +207,6 @@ export default function App() {
       const rawNudges = await fbGet(CONFIG.FIREBASE_URL, `nudges/${emailKey(u.email)}`);
       if (rawNudges) {
         const nudgeList = Object.entries(rawNudges).map(([k,v])=>({...v,key:k}));
-        setNudges(nudgeList);
         // Show most recent unread nudge
         const unread = nudgeList.filter(n=>!n.read);
         if (unread.length > 0) setMyNudge(unread[0]);
