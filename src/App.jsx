@@ -8,19 +8,10 @@ const CONFIG = {
 };
 
 // ─── ACCESS CONTROL ────────────────────────────────────────
-// Add every member's Google email address here (lowercase).
-// Anyone NOT on this list will be blocked after login — they
-// will see the app but cannot read or write any data.
-// To add someone: add their email to this array and redeploy.
-const ALLOWED_EMAILS = [
-  "thriyamindia@gmail.com",   // Thriyam (admin)
-  // Add your squad members below:
-  // "friend1@gmail.com",
-  // "friend2@gmail.com",
-];
-
+// Open access — any Google account can sign in.
+// The app URL is your only gatekeeping (share it only with your squad).
 function isAllowed(email) {
-  return ALLOWED_EMAILS.map(e => e.toLowerCase()).includes((email || "").toLowerCase());
+  return true;
 }
 
 const IS_DEMO = (() => {
