@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 // ─── CONFIG — fill in your NEW Firebase project URL ───────
 const CONFIG = {
   GOOGLE_CLIENT_ID: "165852146657-pfba2b1dh9fh39p480igaj1q0ujobc5e.apps.googleusercontent.com",
-  FIREBASE_URL: "YOUR_NEW_FIREBASE_URL",          // new QuadFyt Firebase DB
+  FIREBASE_URL: "https://quadfit-93124-default-rtdb.firebaseio.com",
   SUGARFREE_FIREBASE: "https://sugarfree-3e6cf-default-rtdb.firebaseio.com", // old data source
 };
 
@@ -24,8 +24,8 @@ function isAllowed(email) {
 }
 
 const IS_DEMO = (() => {
-  try { return window.self !== window.top || CONFIG.FIREBASE_URL.includes("YOUR_NEW"); }
-  catch { return true; }
+  try { return window.self !== window.top; } // only demo inside iframe previews
+  catch { return false; }
 })();
 
 // ─── Challenges ────────────────────────────────────────────
@@ -121,24 +121,12 @@ async function fbPush(path, data) {
 }
 
 // ─── Demo data ─────────────────────────────────────────────
-const DEMO_LOGS = [
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(2), challengeId:"sugar",  done:true,  points:25 },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(2), challengeId:"active", done:true,  points:25, subType:"workout" },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(2), challengeId:"clean",  done:true,  points:25 },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(2), challengeId:"detox",  done:true,  points:25 },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(1), challengeId:"sugar",  done:true,  points:25 },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(1), challengeId:"active", done:true,  points:25, subType:"steps" },
-  { email:"alex@demo.com", name:"Alex", date:daysAgo(1), challengeId:"clean",  done:true,  points:25 },
-  { email:"sam@demo.com",  name:"Sam",  date:daysAgo(1), challengeId:"sugar",  done:true,  points:25 },
-  { email:"sam@demo.com",  name:"Sam",  date:daysAgo(1), challengeId:"active", done:true,  points:25, subType:"steps" },
-  { email:"mia@demo.com",  name:"Mia",  date:daysAgo(1), challengeId:"detox",  done:true,  points:25 },
-];
 
 // ─── Main App ──────────────────────────────────────────────
 export default function App() {
-  const [authState, setAuthState]     = useState(IS_DEMO ? "authed" : "idle");
-  const [user, setUser]               = useState(IS_DEMO ? {name:"Alex",email:"alex@demo.com",picture:null,avatar:"🧑"} : null);
-  const [logs, setLogs]               = useState(IS_DEMO ? DEMO_LOGS : []);
+  const [authState, setAuthState]     = useState("idle");
+  const [user, setUser]               = useState(null);
+  const [logs, setLogs]               = useState([]);
   const [myNudge, setMyNudge]         = useState(null); // nudge I just received (show banner)
   const [view, setView]               = useState("home");
   const [logDate, setLogDate]         = useState(toDateStr()); // which day are we logging for
@@ -147,6 +135,7 @@ export default function App() {
   const [saving, setSaving]           = useState(false);
   const [loading, setLoading]         = useState(false);
   const [saveError, setSaveError]     = useState(null);
+  const [reminderVisible, setReminderVisible] = useState(false);
   const [gsiReady, setGsiReady]       = useState(false);
   const [celebChallenge, setCelebChallenge] = useState(null);
   const [showShare, setShowShare]           = useState(false);
@@ -189,6 +178,8 @@ export default function App() {
           }
           setAuthState("authed");
           await loadAll(u);
+          // Daily reminder: check if any challenge logged today
+          setTimeout(() => checkDailyReminder(u), 2000);
         } catch { setAuthState("error"); }
       },
     });
@@ -358,6 +349,14 @@ export default function App() {
     }
   }
 
+  function checkDailyReminder(u) {
+    const todayKey = toDateStr();
+    const todayLogs = logs.filter(l => l.email === u.email && l.date === todayKey);
+    if (todayLogs.length === 0) {
+      setReminderVisible(true);
+    }
+  }
+
   function spawnParticles() {
     setParticles(Array.from({length:18},(_,i)=>({
       id:i, left:10+Math.random()*80, delay:Math.random()*0.5,
@@ -503,6 +502,16 @@ export default function App() {
         </div>
       )}
       {IS_DEMO && <div style={S.demoBanner}>Demo Mode — add your Firebase URL to go live</div>}
+      {/* Daily reminder banner */}
+      {reminderVisible && (
+        <div style={{background:"linear-gradient(135deg,#f59e0b,#d97706)",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",zIndex:20}}>
+          <div>
+            <div style={{fontFamily:"Syne,sans-serif",fontSize:13,color:"#fff",fontWeight:800}}>⏰ Don't forget to log today!</div>
+            <div style={{fontFamily:"DM Sans,sans-serif",fontSize:11,color:"rgba(255,255,255,0.85)",marginTop:2}}>You haven't logged any challenges yet today.</div>
+          </div>
+          <button onClick={()=>{setReminderVisible(false);setView("home");}} style={{background:"rgba(255,255,255,0.2)",border:"none",borderRadius:8,padding:"6px 10px",fontFamily:"Syne,sans-serif",fontSize:12,fontWeight:700,color:"#fff",cursor:"pointer",flexShrink:0,marginLeft:10}}>Log now →</button>
+        </div>
+      )}
 
       <main style={{...S.main,...(anyModal?{filter:"blur(2px)"}:{})}}>
 
@@ -1115,10 +1124,19 @@ function ShareModal({ user, totalPoints, tier, myLogs, getChallengeStreak, onClo
             <span style={{fontFamily:"Syne,sans-serif",fontSize:12,fontWeight:700}}>Facebook</span>
             <span style={{fontFamily:"DM Sans,sans-serif",fontSize:9,opacity:0.85}}>Opens app</span>
           </button>
-          <button onClick={()=>copyAndOpen("ig")} style={{flex:1,background:"#833ab4",color:"#fff",border:"none",borderRadius:12,padding:"13px 6px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer"}}>
+          <button onClick={async()=>{
+            const text=shareText();
+            if(navigator.share){
+              try{await navigator.share({title:"QuadFyt Progress",text});}
+              catch{}
+            } else {
+              try{await navigator.clipboard.writeText(text);}catch{}
+              setCopied(true);setPlatform("ig");setTimeout(()=>setCopied(false),3000);
+            }
+          }} style={{flex:1,background:"#833ab4",color:"#fff",border:"none",borderRadius:12,padding:"13px 6px",display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer"}}>
             <span style={{fontSize:24}}>📸</span>
             <span style={{fontFamily:"Syne,sans-serif",fontSize:12,fontWeight:700}}>Instagram</span>
-            <span style={{fontFamily:"DM Sans,sans-serif",fontSize:9,opacity:0.85}}>Copy + image</span>
+            <span style={{fontFamily:"DM Sans,sans-serif",fontSize:9,opacity:0.85}}>{navigator.share?"Share sheet":"Copy text"}</span>
           </button>
         </div>
 
